@@ -17,59 +17,39 @@
                              :show="showKeyboard"
                              @blur="showKeyboard = false" />
       </div>
-
       <div class="clockTime">
-        <van-icon name="clock-o"
-                  size="16" />
-        <van-count-down :time="time" />
-        <span v-if="time>0">剩余</span>
-        <span v-if="time===0">重新获取验证码</span>
+        <van-count-down :time="time"
+                        @finish="onFinish"
+                        ref="countDown" />
+        <span v-if="showTime">剩余</span>
+        <span @click="getCode"
+              v-else>{{code_ts}}</span>
       </div>
       <div class="contact">
         <a href="javascript:;">联系客服</a>
       </div>
-      <div class="error_message">验证码错误,请重新输入</div>
+      <div class="error_message"
+           v-if="errorInfo">验证码错误,请重新输入</div>
       <div class="backOrNext">
         <van-button plain
                     type="primary"
                     @click="back">返回</van-button>
         <van-button type="primary"
+                    :disabled="attcode"
                     @click="ToNext">下一步</van-button>
       </div>
-      <!-- <van-field v-model="phone"
-                 clearable
-                 maxlength="15"
-                 label="手机号"
-                 left-icon="phone-circle-o"
-                 placeholder="请输入手机号">
-        <van-button v-if='phone.length >= 6 && showCountdown == true'
-                    ref="smsCode"
-                    size="mini">
-          <van-count-down :time="state.time"
-                          style="color:#777"
-                          @finish='countDownFinish'
-                          format=" ss 秒后重试" />
-        </van-button>
-        <van-button v-else-if="phone.length >=6"
-                    @click="getSmsCode"
-                    size="mini">获取验证码</van-button>
-        <van-button v-else
-                    disabled
-                    size="mini">获取验证码</van-button>
-      </van-field> -->
 
     </div>
-
   </div>
 </template>
 <script>
-import { reactive, ref } from 'vue'
+import { reactive, ref, toRefs, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import headerSim from '@/components/comHeader'
 export default {
   name: "CodeInput",
   components: {
-    headerSim,
+    headerSim
   },
   setup () {
     const value = ref('');
@@ -77,20 +57,22 @@ export default {
     const time = ref(60 * 1000)
     const router = useRouter()
     const state = reactive({
-      show: true,
-      phone: '',//手机号
-      showCountdown: false//是否显示倒计时
+      showTime: true,//展示获取验证码及倒计时判断,
+      attcode: true,//判断下一步按钮是否可用
+      code_ts: '重新获取验证码',
+      errorInfo: false,
+      count: 0
     })
-    const getSmsCode = () => {
-      state.showCountdown = true//这里只是简单的显示倒计时逻辑获取验证码需要具体的接口
-    }
-    const countDownFinish = () => {//倒计时结束后的方法
-      state.showCountdown = false ////隐藏倒计时
-    }
-    const sendCode = () => {
-      if (state.time == 0) {
-        state.show = false
-      }
+    const param = reactive({
+      phone: '',//手机号
+    })
+    const getCode = () => {
+      time.value = 60000
+      console.log(time);
+    };
+    const onFinish = () => {
+      time.value = state.count
+      state.showTime = false;
     }
     const back = () => {
       router.go(-1)
@@ -98,15 +80,30 @@ export default {
     const ToNext = () => {
       router.push('/regcompleted')
     }
+    watch(time, (newVal) => {
+      console.log(newVal);
+
+    });
+
+    // 验证输入验证码
+    watch(value, (newVal) => {
+      console.log(newVal.length);
+      if (newVal.length === 4 && newVal) {
+        state.errorInfo = false;
+        state.attcode = false
+      } else {
+        state.errorInfo = true;
+        state.attcode = true
+      }
+    });
     return {
-      state,
-      getSmsCode,
-      countDownFinish,
-      sendCode,
+      ...toRefs(state, param),
       back,
+      getCode,
       time,
       ToNext,
       value,
+      onFinish,
       showKeyboard,
     }
   }
@@ -114,7 +111,9 @@ export default {
 </script>
 <style lang="less" scoped>
 .codeContent {
+  height: 420px;
   margin: 36px 40px 0 40px;
+  position: relative;
   .text-area {
     .title {
       font-size: 18px;
@@ -160,21 +159,23 @@ export default {
   }
   .error_message {
     text-align: center;
-    margin-top: 41px;
+    height: 75px;
+    width: 295px;
     font-size: 15px;
     font-family: Source Han Sans CN;
     font-weight: 300;
-    line-height: 26px;
+    line-height: 75px;
     color: #ff0606;
     opacity: 1;
   }
   .backOrNext {
-    margin-top: 50px;
+    position: absolute;
     text-align: center;
+    bottom: 0;
+    margin: 50px 0;
     & button {
       margin: 0 8px;
       width: 130px;
-      opacity: 1;
       border-radius: 15px;
     }
   }
